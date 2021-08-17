@@ -1,5 +1,5 @@
 import pytest
-from brownie import ZERO_ADDRESS, accounts, options
+from brownie import ZERO_ADDRESS, accounts, options, chain
 import brownie
 
 def test_create_options(_options, bob):
@@ -50,4 +50,36 @@ def test_buy_purchase_option(_options_purchased, bob, dixie):
         _options_purchased.buyPurchasedOption(0, {"from": dixie, "value": "4 ether"})
     _options_purchased.buyPurchasedOption(0, {"from": dixie, "value": "5 ether"})
     assert _options_purchased.viewOption(0)["owner"] == dixie
+
+def test_cashout(_options_purchased, charles, dixie):
+    with brownie.reverts("There is nothing to collect"):
+        _options_purchased.cashOut("UNI", 2)
+    with brownie.reverts("You are not the riskTaker of this option"):
+        _options_purchased.cashOut("COMP", 0, {"from": dixie})
+    with brownie.reverts("Buyer still has time to call option"):
+        _options_purchased.cashOut("COMP", 0, {"from": charles})
+    chain.sleep(2_678_401)
+    original_charles_balance = charles.balance()
+    _options_purchased.cashOut("COMP", 0, {"from": charles})
+    assert charles.balance() == original_charles_balance + "10 ether"
+
+def test_call_option_fail(_options_purchased, bob, dixie):
+    with brownie.reverts("You are not the buyer of this option"):
+        _options_purchased.callOption("COMP", 0, {"from": dixie})
+    with brownie.reverts("It's too early to call this European option"):
+        _options_purchased.callOption("COMP", 0, {"from": bob})
+    chain.sleep(2_678_401)
+    with brownie.reverts("It's too late to call this option"):
+        _options_purchased.callOption("COMP", 0, {"from": bob})
+    _options_purchased.createOption(0, "UNI", 2_592_000, "buy", "American", {"from": bob, "value": "8 ether"})
+    with brownie.reverts("This option hasn't been purchased"):
+        _options_purchased.callOption("UNI", 1, {"from": bob})
+
+def test_call_option_success(_options_purchased, bob):
+    chain.sleep(2_592_001)
+    original_bob_balance = bob.balance()
+    _options_purchased.callOption("COMP", 0, {"from": bob})
+    with brownie.reverts("Option has been called already"):
+        _options_purchased.callOption("COMP", 0, {"from": bob})
+    assert bob.balance() == original_bob_balance + "10 ether"
 

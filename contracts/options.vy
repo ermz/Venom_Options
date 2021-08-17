@@ -159,13 +159,13 @@ def cashOut(_ticker: String[4], _optionId: uint256):
 
     assert current_option.riskTaker == msg.sender, "You are not the riskTaker of this option"
     assert (current_option.startTime + current_option.duration + 86400) <= block.timestamp, "Buyer still has time to call option"
-    send(msg.sender, convert(self.sellerLedger[_ticker][_optionId], uint256))
+    send(msg.sender, convert(self.sellerLedger[_ticker][_optionId] * WEI_CONVERSION_DEC, uint256))
     self.sellerLedger[_ticker][_optionId] = 0.0
 
 
 @external
 def callOption(_ticker: String[4], _optionId: uint256):
-    assert self.sellerLedger[_ticker][_optionId] != 0.0, "Too late to call option"
+    assert self.sellerLedger[_ticker][_optionId] != 0.0, "Option has been called already"
     current_option: Option = self.optionsLedger[_optionId]
     
     assert current_option.owner == msg.sender, "You are not the buyer of this option"
@@ -175,7 +175,7 @@ def callOption(_ticker: String[4], _optionId: uint256):
     if current_option.optionType == "European":
         assert (current_option.startTime + current_option.duration) < block.timestamp, "It's too early to call this European option"
 
-    send(msg.sender, convert(self.sellerLedger[_ticker][_optionId], uint256))
+    send(msg.sender, convert(self.sellerLedger[_ticker][_optionId] * WEI_CONVERSION_DEC, uint256))
     self.sellerLedger[_ticker][_optionId] = 0.0
     
     
