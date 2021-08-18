@@ -83,3 +83,14 @@ def test_call_option_success(_options_purchased, bob):
         _options_purchased.callOption("COMP", 0, {"from": bob})
     assert bob.balance() == original_bob_balance + "10 ether"
 
+def test_rebalance_option_fail(_options_purchased, bob):
+    with brownie.reverts("This option does not exist"):
+        _options_purchased.rebalanceOption("UNI", 2, {"from": bob})
+    with brownie.reverts("This option has been purchased already"):
+        _options_purchased.rebalanceOption("COMP", 0, {"from": bob})
+
+def test_rebalance_option_buyer(_options, bob, charles):
+    _options.createOption(0, "COMP", 1_296_000, "buy", "European", {"from": bob, "value": "15 ether"})
+    with brownie.reverts("You are not the owner of this option"):
+        _options.rebalanceOption("COMP", 0, {"from": charles})
+    

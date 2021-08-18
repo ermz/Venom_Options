@@ -189,11 +189,11 @@ def rebalanceStrikePrice(currentAssetPrice: decimal, start_time: uint256, durati
 
     assert time_left > 0, "There's no time left for rebalancing, buy time has ended"
 
-    if time_left > THIRTY_DAYS:
+    if time_left >= THIRTY_DAYS:
         time_difference = convert(time_left, decimal) - 2_592_000.0
         new_time_percentage = ((time_difference / 2_592_000.0) * 20.0) / 100.0 + 0.3
         new_time_multiplier = new_time_percentage * currentAssetPrice
-    elif time_left > FIFTEEN_DAYS:
+    elif time_left >= FIFTEEN_DAYS:
         time_difference = convert(time_left, decimal) - 1_296_000.0
         new_time_percentage = ((time_difference / 1_296_000.0) * 20.0) / 100.0 + 0.1
         new_time_multiplier = new_time_percentage * currentAssetPrice
@@ -231,8 +231,14 @@ def rebalanceOption(_ticker:String[4], _optionId:uint256):
         assert current_option.riskTaker == msg.sender, "You are not the riskTaker of thsi option"
 
         if current_token_price > current_option.marketPrice:
-            assert convert(msg.value, decimal) >= ((current_token_price * SHARES_PER_OPTION) - balance_on_hold) * WEI_CONVERSION_DEC, "You aren't sending enough to cover the cost"
-
+            # assert convert(msg.value, decimal) >= ((current_token_price * SHARES_PER_OPTION) - balance_on_hold) * WEI_CONVERSION_DEC, "You aren't sending enough to cover the cost"
+            self.idToRebalance[_optionId] = RebalanceOrder({
+                rebalancer: msg.sender,
+                rebalancerType: "taker",
+                newStrikePrice: new_strike_price,
+                newMarketPrice: current_token_price,
+                expirationTime: block.timestamp + 300
+            })
         elif current_token_price < current_option.marketPrice:
             send(msg.sender, convert((balance_on_hold - (current_token_price * SHARES_PER_OPTION)) * WEI_CONVERSION_DEC, uint256))
             self.sellerLedger[_ticker][_optionId] = current_token_price * SHARES_PER_OPTION
@@ -242,7 +248,14 @@ def rebalanceOption(_ticker:String[4], _optionId:uint256):
         assert current_option.owner == msg.sender, "You are not the owner of this option"
 
         if new_strike_price > current_option.strikePrice:
-            assert convert(msg.value, decimal) >= ((new_strike_price * SHARES_PER_OPTION) - balance_on_hold) * WEI_CONVERSION_DEC, "You aren't sending enough to cover for the price increase of token"
+            # assert convert(msg.value, decimal) >= ((new_strike_price * SHARES_PER_OPTION) - balance_on_hold) * WEI_CONVERSION_DEC, "You aren't sending enough to cover for the price increase of token"
+            self.idToRebalance[_optionId] = RebalanceOrder({
+                rebalancer: msg.sender,
+                rebalancerType: "buyer",
+                newStrikePrice: new_strike_price,
+                newMarketPrice: current_token_price,
+                expirationTime: block.timestamp + 300
+            })
         elif new_strike_price < current_option.strikePrice:
             send(msg.sender, convert((balance_on_hold - (new_strike_price * SHARES_PER_OPTION)) * WEI_CONVERSION_DEC, uint256))
 
@@ -251,4 +264,33 @@ def rebalanceOption(_ticker:String[4], _optionId:uint256):
             self.optionsLedger[_optionId].marketPrice = current_token_price    
 
 
+struct RebalanceOrder:
+    rebalancer: address
+    rebalancerType: String[5]
+    newStrikePrice: decimal
+    newMarketPrice: decimal
+    expirationTime: uint256
+
+idToRebalance: HashMap[uint256, RebalanceOrder]
+
+
+@external
+@payable
+def rabalanceIncrease(_ticker: String[4], _optionId: uint256):
+    rebalancing_order: RebalanceOrder = self.idToRebalance[_optionId]
+    assert rebalancing_order.rebalancer == msg.sender, "This balance order does not belong to you"
+    assert block.timestamp <= rebalancing_order.expirationTime, "Out of time. Please create another rebalance order"
+
+    if rebalancing_order.rebalancerType == "buyer":
+        strike_price_difference: decimal = rebalancing_order.newStrikePrice - self.optionsLedger[_optionId].strikePrice
+        assert convert(msg.value, decimal) >= (strike_price_difference * SHARES_PER_OPTION * WEI_CONVERSION_DEC), "Insufficient funds to complete rebalaning increase"
+        self.buyerLedger[_ticker][_optionId] = (rebalancing_order.newStrikePrice * SHARES_PER_OPTION)
+        self.optionsLedger[_optionId].strikePrice = rebalancing_order.newStrikePrice
+        self.optionsLedger[_optionId].marketPrice = rebalancing_order.newMarketPrice
+    elif rebalancing_order.rebalancerType == "taker":
+        market_price_difference: decimal = rebalancing_order.newMarketPrice - self.optionsLedger[_optionId].marketPrice
+        assert convert(msg.value, decimal) >= (market_price_difference * SHARES_PER_OPTION * WEI_CONVERSION_DEC)
+        self.sellerLedger[_ticker][_optionId] = (rebalancing_order.newMarketPrice * SHARES_PER_OPTION)
+        self.optionsLedger[_optionId].strikePrice = rebalancing_order.newStrikePrice
+        self.optionsLedger[_optionId].marketPrice = rebalancing_order.newMarketPrice
    
