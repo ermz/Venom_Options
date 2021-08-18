@@ -93,4 +93,9 @@ def test_rebalance_option_buyer(_options, bob, charles):
     _options.createOption(0, "COMP", 1_296_000, "buy", "European", {"from": bob, "value": "15 ether"})
     with brownie.reverts("You are not the owner of this option"):
         _options.rebalanceOption("COMP", 0, {"from": charles})
-    
+    _options.updateTokenPrice("COMP", 1)
+    original_bob_balance = bob.balance()
+    _options.rebalanceOption("COMP", 0, {"from": bob})
+    assert bob.balance() > original_bob_balance
+    # Now I have to test with new function(rebalanceIncrease)
+    # Also have to test from seller point of view

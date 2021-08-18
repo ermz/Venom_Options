@@ -55,6 +55,12 @@ def __init__(_crv_price: uint256, _uni_price: uint256, _comp_price: uint256):
 
 
 @external
+def updateTokenPrice(_ticker: String[4], _price: uint256):
+    assert self.tokenToPrice[_ticker] != 0, "This token is not supported"
+    self.tokenToPrice[_ticker] = _price
+
+
+@external
 @view
 def viewOption(_optionId: uint256) -> Option:
     return self.optionsLedger[_optionId]
@@ -225,10 +231,10 @@ def rebalanceOption(_ticker:String[4], _optionId:uint256):
                                                           current_option.optionType
                                                           )
     assert current_option.purchased == False, "This option has been purchased already"
-    balance_on_hold: decimal = self.sellerLedger[_ticker][_optionId]
 
     if current_option.owner == ZERO_ADDRESS:
         assert current_option.riskTaker == msg.sender, "You are not the riskTaker of thsi option"
+        balance_on_hold: decimal = self.sellerLedger[_ticker][_optionId]
 
         if current_token_price > current_option.marketPrice:
             # assert convert(msg.value, decimal) >= ((current_token_price * SHARES_PER_OPTION) - balance_on_hold) * WEI_CONVERSION_DEC, "You aren't sending enough to cover the cost"
@@ -246,6 +252,7 @@ def rebalanceOption(_ticker:String[4], _optionId:uint256):
             self.optionsLedger[_optionId].marketPrice = current_token_price
     elif current_option.riskTaker == ZERO_ADDRESS:
         assert current_option.owner == msg.sender, "You are not the owner of this option"
+        balance_on_hold: decimal = self.buyerLedger[_ticker][_optionId]
 
         if new_strike_price > current_option.strikePrice:
             # assert convert(msg.value, decimal) >= ((new_strike_price * SHARES_PER_OPTION) - balance_on_hold) * WEI_CONVERSION_DEC, "You aren't sending enough to cover for the price increase of token"
@@ -261,7 +268,7 @@ def rebalanceOption(_ticker:String[4], _optionId:uint256):
 
             self.buyerLedger[_ticker][_optionId] = new_strike_price * SHARES_PER_OPTION
             self.optionsLedger[_optionId].strikePrice = new_strike_price
-            self.optionsLedger[_optionId].marketPrice = current_token_price    
+            self.optionsLedger[_optionId].marketPrice = current_token_price
 
 
 struct RebalanceOrder:
@@ -273,6 +280,10 @@ struct RebalanceOrder:
 
 idToRebalance: HashMap[uint256, RebalanceOrder]
 
+@external
+@view
+def viewRebalanceOrder(_optionId: uint256) -> RebalanceOrder:
+    return self.idToRebalance[_optionId]
 
 @external
 @payable
@@ -293,4 +304,6 @@ def rabalanceIncrease(_ticker: String[4], _optionId: uint256):
         self.sellerLedger[_ticker][_optionId] = (rebalancing_order.newMarketPrice * SHARES_PER_OPTION)
         self.optionsLedger[_optionId].strikePrice = rebalancing_order.newStrikePrice
         self.optionsLedger[_optionId].marketPrice = rebalancing_order.newMarketPrice
+
+    self.idToRebalance[_optionId] = empty(RebalanceOrder)
    
