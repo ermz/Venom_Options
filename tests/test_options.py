@@ -89,7 +89,7 @@ def test_rebalance_option_fail(_options_purchased, bob):
     with brownie.reverts("This option has been purchased already"):
         _options_purchased.rebalanceOption("COMP", 0, {"from": bob})
 
-def test_rebalance_option_buyer(_options, bob, charles):
+def test_rebalance_option_buyer_lower_strike_price(_options, bob, charles):
     _options.createOption(0, "COMP", 1_296_000, "buy", "European", {"from": bob, "value": "15 ether"})
     with brownie.reverts("You are not the owner of this option"):
         _options.rebalanceOption("COMP", 0, {"from": charles})
@@ -99,3 +99,34 @@ def test_rebalance_option_buyer(_options, bob, charles):
     assert bob.balance() > original_bob_balance
     # Now I have to test with new function(rebalanceIncrease)
     # Also have to test from seller point of view
+
+def test_rebalance_option_buyer_higher_strike_price(_options, bob, charles):
+    _options.createOption(0, "UNI", 1_296_000, "buy", "European", {"from": bob, "value": "10 ether"})
+    _options.updateTokenPrice("UNI", 3)
+    _options.rebalanceOption("UNI", 0, {"from": bob})
+    assert _options.viewRebalanceOrder(0)["rebalancer"] == bob
+    with brownie.reverts("This balance order does not belong to you"):
+        _options.rebalanceIncrease("UNI", 0, {"from": charles})
+    new_strike_price = _options.viewRebalanceOrder(0)["newStrikePrice"]
+    with brownie.reverts("Insufficient funds to complete rebalaning increase"):
+        _options.rebalanceIncrease("UNI", 0, {"from": bob, "value": "4 ether"})
+    assert _options.viewOption(0)["strikePrice"] == 1
+    _options.rebalanceIncrease("UNI", 0, {"from": bob, "value": "5 ether"})
+    assert _options.viewOption(0)["strikePrice"] == new_strike_price
+
+def test_rebalance_option_seller_lower_market_price(_options, bob):
+    _options.createOption(1, "UNI", 1_296_000, "sell", "American", {"from": bob, "value": "20 ether"})
+    _options.updateTokenPrice("UNI", 1)
+    original_bob_balance = bob.balance()
+    _options.rebalanceOption("UNI", 0, {"from": bob})
+    assert original_bob_balance < bob.balance()
+    assert _options.viewOption(0)["marketPrice"] == 1
+
+def test_rebalance_option_seller_lower_market_price(_options, charles):
+    _options.createOption(1, "UNI", 1_296_000, "sell", "American", {"from": charles, "value": "20 ether"})
+    _options.updateTokenPrice("UNI", 3)
+    _options.rebalanceOption("UNI", 0, {"from": charles})
+    assert _options.viewOption(0)["marketPrice"] == 2
+    _options.rebalanceIncrease("UNI", 0, {"from": charles, "value": "10 ether"})
+    assert _options.viewOption(0)["marketPrice"] == 3
+    

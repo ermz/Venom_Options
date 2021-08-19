@@ -1,5 +1,7 @@
 # @version ^0.2.0
 
+
+
 struct Option:
     optionId: uint256
     owner: address
@@ -287,7 +289,7 @@ def viewRebalanceOrder(_optionId: uint256) -> RebalanceOrder:
 
 @external
 @payable
-def rabalanceIncrease(_ticker: String[4], _optionId: uint256):
+def rebalanceIncrease(_ticker: String[4], _optionId: uint256):
     rebalancing_order: RebalanceOrder = self.idToRebalance[_optionId]
     assert rebalancing_order.rebalancer == msg.sender, "This balance order does not belong to you"
     assert block.timestamp <= rebalancing_order.expirationTime, "Out of time. Please create another rebalance order"
