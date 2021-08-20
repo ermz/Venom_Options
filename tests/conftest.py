@@ -18,6 +18,14 @@ def dixie(accounts):
     return accounts[3]
 
 @pytest.fixture()
+def eddy(accounts):
+    return accounts[4]
+
+@pytest.fixture()
+def felix(accounts):
+    return accounts[5]
+
+@pytest.fixture()
 def _options(alice):
     _options = options.deploy(1, 2, 3, {"from": alice})
     return _options

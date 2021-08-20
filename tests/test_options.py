@@ -97,8 +97,6 @@ def test_rebalance_option_buyer_lower_strike_price(_options, bob, charles):
     original_bob_balance = bob.balance()
     _options.rebalanceOption("COMP", 0, {"from": bob})
     assert bob.balance() > original_bob_balance
-    # Now I have to test with new function(rebalanceIncrease)
-    # Also have to test from seller point of view
 
 def test_rebalance_option_buyer_higher_strike_price(_options, bob, charles):
     _options.createOption(0, "UNI", 1_296_000, "buy", "European", {"from": bob, "value": "10 ether"})
@@ -129,4 +127,32 @@ def test_rebalance_option_seller_lower_market_price(_options, charles):
     assert _options.viewOption(0)["marketPrice"] == 2
     _options.rebalanceIncrease("UNI", 0, {"from": charles, "value": "10 ether"})
     assert _options.viewOption(0)["marketPrice"] == 3
+    
+def test_events_buyer_create(_options, dixie, eddy):
+    tx1 = _options.createOption(0, "CRV", 2_592_000, "buy", "American", {"from": dixie, "value": "4 ether"})
+    assert len(tx1.events) == 2
+    assert tx1.events[0]["creator"] == dixie
+    assert tx1.events[1]["value"] == "4 ether"
+
+    tx2 = _options.buyOption(0, {"from": eddy, "value": "10 ether"})
+    assert len(tx2.events) == 2
+    assert tx2.events[0]["sender"] == _options
+    assert tx2.events[1]["optionId"] == 0
+
+    _options.sellPurchasedOption(0, 3, {"from": dixie})
+    tx3 = _options.buyPurchasedOption(0, {"from": eddy, "value": "3 ether"})
+    assert len(tx3.events) == 3
+    assert tx3.events[0]["sender"] == eddy
+    assert tx3.events[1]["sender"] == _options
+    assert tx3.events[2]["optionId"] == 0
+
+    tx4 = _options.callOption("CRV", 0, {"from": eddy})
+    assert len(tx4.events) == 1
+    assert tx4.events[0]["sender"] == _options
+
+def test_events_seller_create(_options, felix, eddy):
+    tx1 = _options.createOption(1, "CRV", 2_592_000, "sell", "European", {"from": felix, "value": "10 ether"})
+    assert len(tx1.events) == 2
+    assert tx1.events[0]["duration"] == 2_592_000
+    assert tx1.events[1]["receiver"] == _options
     
