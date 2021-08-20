@@ -155,4 +155,26 @@ def test_events_seller_create(_options, felix, eddy):
     assert len(tx1.events) == 2
     assert tx1.events[0]["duration"] == 2_592_000
     assert tx1.events[1]["receiver"] == _options
-    
+
+    _options.updateTokenPrice("CRV", 2)
+
+    tx2 = _options.rebalanceOption("CRV", 0, {"from": felix})
+    assert not tx2.events
+
+    tx3 = _options.rebalanceIncrease("CRV", 0, {"from": felix, "value": "10 ether"})
+    assert len(tx3.events) == 2
+    assert tx3.events[0]["value"] == "10 ether"
+    assert tx3.events[1]["optionId"] == 0
+
+    _options.updateTokenPrice("CRV", 1)
+
+    tx4 = _options.rebalanceOption("CRV", 0, {"from": felix})
+    assert len(tx4.events) == 2
+    assert tx4.events[0]["value"] == "10 ether"
+    assert tx4.events[1]["marketPrice"] == 1
+
+    chain.sleep(2_678_401)
+
+    tx5 = _options.cashOut("CRV", 0, {"from": felix})
+    assert len(tx5.events) == 1
+    assert tx5.events[0]["value"] == "10 ether"

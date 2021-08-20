@@ -249,7 +249,6 @@ def cashOut(_ticker: String[4], _optionId: uint256):
         It also checks that riskTaker hasn't called function already and amount originally sent by riskTaker is returned
         Makes sure that it's been one day since option duration has elapsed. Owner has one day after option has ended to call option
     """
-
     assert self.sellerLedger[_ticker][_optionId] != 0.0, "There is nothing to collect"
     current_option: Option = self.optionsLedger[_optionId]
 
