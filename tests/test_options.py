@@ -1,5 +1,6 @@
 import pytest
 from brownie import ZERO_ADDRESS, accounts, options, chain
+from brownie.test import given, strategy
 import brownie
 
 def test_create_options(_options, bob):
@@ -13,6 +14,7 @@ def test_create_options(_options, bob):
         _options.createOption(1, "CRV", 2_592_000, "sell", "American", {"from": bob, "value": "9 ether"})
     _options.createOption(0, "CRV", 2_592_000, "buy", "American", {"from": bob, "value": "4 ether"})
     assert _options.viewOption(0)["owner"] == bob
+
 
 def test_buy_option(_options, bob, charles, dixie):
     _options.createOption(0, "CRV", 1_296_000, "buy", "European", {"from": bob, "value": "5 ether"})
@@ -30,7 +32,7 @@ def test_buy_option(_options, bob, charles, dixie):
     assert charles.balance() == origianl_charles_balance + "2 ether"
     assert _options.viewOption(1)["purchased"] == True
 
-def test_sell_purchase_option(_options_purchased, bob, dixie):
+def test_sell_purchased_option(_options_purchased, bob, dixie):
     with brownie.reverts("You are not the owner of this option"):
         _options_purchased.sellPurchasedOption(0, 4, {"from": dixie})
     _options_purchased.sellPurchasedOption(0, 3, {"from": bob})
@@ -42,7 +44,17 @@ def test_sell_purchase_option(_options_purchased, bob, dixie):
     with brownie.reverts("This option is still up for sale"):
         _options_purchased.sellPurchasedOption(1, 20, {"from": dixie})
 
-def test_buy_purchase_option(_options_purchased, bob, dixie):
+
+@given(cost=strategy('uint256', max_value = 20))
+def test_option_variable_cost(cost):
+    property_option = options.deploy(1, 2, 3, {"from": accounts[8]})
+    property_option.createOption(0, "CRV", 1_296_000, "buy", "American", {"from": accounts[8], "value": "2 ether"})
+    property_option.buyOption(0, {"from": accounts[9], "value": "10 ether"})
+    property_option.sellPurchasedOption(0, cost, {"from": accounts[8]})
+    assert property_option.viewOptionsForSale(0) == cost
+
+
+def test_buy_purchased_option(_options_purchased, bob, dixie):
     with brownie.reverts("Not for sale"):
         _options_purchased.buyPurchasedOption(0, {"from": dixie})
     _options_purchased.sellPurchasedOption(0, 5, {"from": bob})
@@ -178,3 +190,4 @@ def test_events_seller_create(_options, felix, eddy):
     tx5 = _options.cashOut("CRV", 0, {"from": felix})
     assert len(tx5.events) == 1
     assert tx5.events[0]["value"] == "10 ether"
+
