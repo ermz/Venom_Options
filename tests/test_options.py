@@ -2,6 +2,7 @@ import pytest
 from brownie import ZERO_ADDRESS, accounts, options, chain
 from brownie.test import given, strategy
 import brownie
+from decimal import *
 
 def test_create_options(_options, bob):
     with brownie.reverts("This token is not supported"):
@@ -46,12 +47,28 @@ def test_sell_purchased_option(_options_purchased, bob, dixie):
 
 
 @given(cost=strategy('uint256', max_value = 20))
-def test_option_variable_cost(cost):
+def test_option_variable_cost_seller(cost):
     property_option = options.deploy(1, 2, 3, {"from": accounts[8]})
     property_option.createOption(0, "CRV", 1_296_000, "buy", "American", {"from": accounts[8], "value": "2 ether"})
     property_option.buyOption(0, {"from": accounts[9], "value": "10 ether"})
     property_option.sellPurchasedOption(0, cost, {"from": accounts[8]})
     assert property_option.viewOptionsForSale(0) == cost
+
+@given(price=strategy('uint256', min_value = 1, max_value = 4))
+def test_option_variable_cost_buyer(price):
+    property_option = options.deploy(price, 2, 3, {"from": accounts[8]})
+    market_price = price * 10 * 1_000_000_000_000_000_000
+    property_option.createOption(1, "CRV", 1_296_000, "buy", "American", {"from": accounts[8], "value": market_price})
+    strike_price = 0.2 * price
+    # assert price == price
+    assert property_option.viewOption(0)["strikePrice"] == Decimal(strike_price).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+
+@given(price=strategy('uint256', min_value = 1, max_value = 4))
+def test_price_variable_seller(price):
+    property_option = options.deploy(price, 2, 3, {"from": accounts[9]})
+    strike_price = int(Decimal(price * 0.2).quantize(Decimal('0.01'), rounding=ROUND_DOWN) * Decimal("1_000_000_000_000_000_000.0")) * 10
+    property_option.createOption(0, "CRV", 1_296_000, "buy", "American", {"from": accounts[9], "value": strike_price})
+    assert property_option.viewOption(0)["marketPrice"] == price
 
 
 def test_buy_purchased_option(_options_purchased, bob, dixie):
