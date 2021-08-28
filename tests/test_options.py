@@ -17,6 +17,26 @@ def test_create_options(_options, bob):
     assert _options.viewOption(0)["owner"] == bob
 
 
+@given(creator=strategy('address'))
+def test_any_user_can_create(creator):
+    property_option = options.deploy(1, 2, 3, {"from": accounts[0]})
+    property_option.createOption(0, "CRV", 1_296_000, "buy", "American", {"from": creator, "value": "2 ether"})
+    assert property_option.viewOption(0)["owner"] == creator
+
+
+class StateMachine:
+
+    crv_price = strategy('uint256', min_value = 1, max_value = 4)
+    uni_price = strategy('uint256', min_value = 1, max_value = 4)
+    comp_price = strategy('uint256', min_value = 1, max_value = 4)
+
+    def __init__(cls, accounts, options):
+        cls.accounts = accounts
+        cls.contract = options.deploy({'from': accounts[0]})
+
+    
+
+
 def test_buy_option(_options, bob, charles, dixie):
     _options.createOption(0, "CRV", 1_296_000, "buy", "European", {"from": bob, "value": "5 ether"})
     assert _options.viewOption(0)["riskTaker"] == ZERO_ADDRESS
