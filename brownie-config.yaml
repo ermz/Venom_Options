@@ -1,2 +1,4 @@
 networks:
-  default: local
+  default: ropsten
+  development:
+    gas_limit: 100000000000
