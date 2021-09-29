@@ -1,7 +1,7 @@
 # @version ^0.2.0
 
 """
-@title Venom Options
+@title Venom_Options
 @license MIT
 @author Edson Ramirez
 @notice Create Options with tokens(CRV, UNI or COMP) at a fair price
@@ -47,6 +47,11 @@ struct Option:
     startTime: uint256
     purchased: bool
 
+interface iOracle:
+    def getConversionPrice(_amount: uint256, _asset: String[4]) -> uint256: view
+
+oracleAddress: address
+
 # Each option is worth 10 tokens. Regardless of type of option (sell/buy)
 SHARES_PER_OPTION: constant(decimal) = 10.0
 WEI_CONVERSION_DEC: constant(decimal) = 1_000_000_000_000_000_000.0
@@ -75,7 +80,7 @@ creatorType: HashMap[uint256, String[5]]
 optionsForSale: HashMap[uint256, uint256]
 
 @external
-def __init__(_crv_price: uint256, _uni_price: uint256, _comp_price: uint256):
+def __init__(_crv_price: uint256, _uni_price: uint256, _comp_price: uint256, _oracleAddress: address):
     self.tokenToPrice["CRV"] = _crv_price
     self.tokenToPrice["UNI"] = _uni_price
     self.tokenToPrice["COMP"] = _comp_price
@@ -86,6 +91,8 @@ def __init__(_crv_price: uint256, _uni_price: uint256, _comp_price: uint256):
 
     self.creatorType[0] = "buyer"
     self.creatorType[1] = "taker"
+
+    self.oracleAddress = _oracleAddress
 
 
 @external
